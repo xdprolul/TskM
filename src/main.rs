@@ -113,11 +113,6 @@ impl Default for TaskApp {
             show_welcome: false,
         };
 
-        // let first_project = &app.projects[0];
-        // if !first_project.sections.is_empty() && !first_project.sections[0].tasks.is_empty() {
-        //     app.focus = SectionFocus::Task(0);
-        // }
-
         if app.projects.is_empty() {
             app.show_welcome = true;
             app.selected_project = 0;
@@ -253,6 +248,7 @@ impl App for TaskApp {
         let input = ctx.input(|i| i.clone());
         if self.projects.is_empty() {
             self.show_welcome = true;
+            return;
         }
         let project_ref = &self.projects[self.selected_project];
         let sec_count = project_ref.sections.len();
@@ -480,10 +476,10 @@ impl App for TaskApp {
                             deleted_last_project = true;
                         } else {
                             if self.selected_project >= self.projects.len() {
-                                self.selected_project = self.projects.len().saturating_sub(1);
+                                self.selected_project = self.projects.len() - 1;
+                                self.selected_section = 0;
+                                self.focus = SectionFocus::NewTaskLine;
                             }
-                            self.selected_section = 0;
-                            self.focus = SectionFocus::NewTaskLine;
                         }
                     }
 
