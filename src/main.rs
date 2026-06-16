@@ -1,9 +1,9 @@
+use dirs_next::data_dir;
 use eframe::egui;
 use eframe::{App, Frame, NativeOptions};
-use egui::{CentralPanel, ScrollArea, TextEdit, Vec2, Key, Context, Modifiers, Color32};
-use serde::{Serialize, Deserialize};
+use egui::{CentralPanel, Color32, Context, Key, Modifiers, ScrollArea, TextEdit, Vec2};
+use serde::{Deserialize, Serialize};
 use std::fs;
-use dirs_next::data_dir;
 use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -30,6 +30,7 @@ enum SectionFocus {
     Header,
     Task(usize),
     NewTaskLine,
+    Notes,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -37,7 +38,6 @@ struct SaveData {
     projects: Vec<Project>,
     next_id: usize,
     notes: String,
-    show_welcome: bool,
 }
 
 struct TaskApp {
@@ -46,8 +46,8 @@ struct TaskApp {
     next_id: usize,
     selected_section: usize,
     focus: SectionFocus,
-    notes:String,
-    show_welcome: bool,
+    notes: String,
+    notes_header: String,
 }
 
 fn data_file_path() -> PathBuf {
@@ -64,57 +64,83 @@ impl Default for TaskApp {
         }
 
         let mut app = Self {
-            projects: vec![
-                Project {
-                    name: "project-1".to_string(),
-                    sections: vec![
-                        Section {
-                            name: "pending-".to_string(),
-                            tasks: vec![
-                                Task { id: 1, text: "private lobby?".into() },
-                                Task { id: 2, text: "invite email".into() },
-                                Task { id: 3, text: "seat change option".into() },
-                            ],
-                            new_task_text: String::new(),
-                        },
-                        Section {
-                            name: "improvements to do-".to_string(),
-                            tasks: vec![
-                                Task { id: 4, text: "control panel orientation on hand after loose app focus".into() },
-                                Task { id: 5, text: "hand gestures".into() },
-                            ],
-                            new_task_text: String::new(),
-                        },
-                        Section {
-                            name: "bugs-".to_string(),
-                            tasks: vec![
-                                Task { id: 6, text: "control panel on controller changes orientation".into() },
-                            ],
-                            new_task_text: String::new(),
-                        },
-                        Section {
-                            name: "pushed updates for testing-".to_string(),
-                            tasks: vec![
-                                Task { id: 7, text: "fullscreen annotation for sphere".into() },
-                                Task { id: 8, text: "annotation panel position for all theatres".into() },
-                                Task { id: 9, text: "sphere screen integration".into() },
-                                Task { id: 10, text: "change theatre".into() },
-                            ],
-                            new_task_text: String::new(),
-                        },
-                    ],
-                },
-            ],
+            projects: vec![Project {
+                name: "project-1".to_string(),
+                sections: vec![
+                    Section {
+                        name: "pending-".to_string(),
+                        tasks: vec![
+                            Task {
+                                id: 1,
+                                text: "private lobby?".into(),
+                            },
+                            Task {
+                                id: 2,
+                                text: "invite email".into(),
+                            },
+                            Task {
+                                id: 3,
+                                text: "seat change option".into(),
+                            },
+                        ],
+                        new_task_text: String::new(),
+                    },
+                    Section {
+                        name: "improvements to do-".to_string(),
+                        tasks: vec![
+                            Task {
+                                id: 4,
+                                text: "control panel orientation on hand after loose app focus"
+                                    .into(),
+                            },
+                            Task {
+                                id: 5,
+                                text: "hand gestures".into(),
+                            },
+                        ],
+                        new_task_text: String::new(),
+                    },
+                    Section {
+                        name: "bugs-".to_string(),
+                        tasks: vec![Task {
+                            id: 6,
+                            text: "control panel on controller changes orientation".into(),
+                        }],
+                        new_task_text: String::new(),
+                    },
+                    Section {
+                        name: "pushed updates for testing-".to_string(),
+                        tasks: vec![
+                            Task {
+                                id: 7,
+                                text: "fullscreen annotation for sphere".into(),
+                            },
+                            Task {
+                                id: 8,
+                                text: "annotation panel position for all theatres".into(),
+                            },
+                            Task {
+                                id: 9,
+                                text: "sphere screen integration".into(),
+                            },
+                            Task {
+                                id: 10,
+                                text: "change theatre".into(),
+                            },
+                        ],
+                        new_task_text: String::new(),
+                    },
+                ],
+            }],
             selected_project: 0,
             next_id: 11,
             selected_section: 0,
             focus: SectionFocus::Header,
             notes: String::new(),
-            show_welcome: false,
+            notes_header: "notes-".to_string(),
         };
 
         if app.projects.is_empty() {
-            app.show_welcome = true;
             app.selected_project = 0;
             app.selected_section = 0;
             app.focus = SectionFocus::NewTaskLine;
@@ -147,14 +173,24 @@ impl TaskApp {
             return;
         }
 
-        if idx >= self.projects[self.selected_project].sections[from_sec].tasks.len() {
+        if idx
+            >= self.projects[self.selected_project].sections[from_sec]
+                .tasks
+                .len()
+        {
             return;
         }
 
-        let task = self.projects[self.selected_project].sections[from_sec].tasks.remove(idx);
+        let task = self.projects[self.selected_project].sections[from_sec]
+            .tasks
+            .remove(idx);
 
-        let new_idx = self.projects[self.selected_project].sections[target_section].tasks.len();
-        self.projects[self.selected_project].sections[target_section].tasks.insert(new_idx, task);
+        let new_idx = self.projects[self.selected_project].sections[target_section]
+            .tasks
+            .len();
+        self.projects[self.selected_project].sections[target_section]
+            .tasks
+            .insert(new_idx, task);
 
         self.selected_section = target_section;
         self.focus = SectionFocus::Task(new_idx);
@@ -163,7 +199,7 @@ impl TaskApp {
     fn delete_selected_task(&mut self) {
         let sec_idx = self.selected_section;
         if sec_idx >= self.projects[self.selected_project].sections.len() {
-            return
+            return;
         }
 
         let idx = match self.focus {
@@ -193,7 +229,6 @@ impl TaskApp {
             projects: self.projects.clone(),
             next_id: self.next_id,
             notes: self.notes.clone(),
-            show_welcome: self.show_welcome,
         };
         if let Ok(json) = serde_json::to_string_pretty(&data) {
             let _ = fs::write(path, json);
@@ -206,17 +241,16 @@ impl TaskApp {
         let data: SaveData = serde_json::from_str(&text).ok()?;
 
         let mut app = Self {
-            projects:data.projects,
+            projects: data.projects,
             selected_project: 0,
             next_id: data.next_id,
             selected_section: 0,
             focus: SectionFocus::Header,
             notes: data.notes,
-            show_welcome: data.show_welcome,
+            notes_header: "notes-".to_string(),
         };
 
         if app.projects.is_empty() {
-            app.show_welcome = true;
             app.focus = SectionFocus::NewTaskLine;
             return Some(app);
         }
@@ -280,9 +314,8 @@ impl App for TaskApp {
             self.save_to_file();
         }
 
-        let save_pressed = ctx.input(|i| {
-            i.key_pressed(Key::S) && i.modifiers.matches_logically(Modifiers::CTRL)
-        });
+        let save_pressed =
+            ctx.input(|i| i.key_pressed(Key::S) && i.modifiers.matches_logically(Modifiers::CTRL));
         if save_pressed {
             self.save_to_file();
         }
@@ -322,6 +355,14 @@ impl App for TaskApp {
                 self.move_selected_to_section(target);
                 ctx.memory_mut(|m| m.request_focus(egui::Id::NULL));
             }
+
+            if input.key_pressed(Key::ArrowLeft) {
+                self.focus = SectionFocus::Notes;
+            }
+
+            if input.key_pressed(Key::ArrowRight) {
+                self.focus = SectionFocus::NewTaskLine;
+            }
         }
 
         if !input.modifiers.ctrl {
@@ -342,7 +383,7 @@ impl App for TaskApp {
                     SectionFocus::NewTaskLine => {
                         if current_tasks_len > 0 {
                             self.focus = SectionFocus::Task(current_tasks_len - 1);
-                        } else if current_sec > 0{
+                        } else if current_sec > 0 {
                             self.selected_section -= 1;
                             self.focus = SectionFocus::NewTaskLine;
                         } else {
@@ -352,6 +393,7 @@ impl App for TaskApp {
                         ctx.memory_mut(|m| m.request_focus(egui::Id::NULL));
                     }
                     SectionFocus::Header => {}
+                    SectionFocus::Notes => {}
                 }
             }
             if input.key_pressed(Key::ArrowDown) {
@@ -367,7 +409,8 @@ impl App for TaskApp {
                         if current_sec + 1 < sec_count {
                             self.selected_section += 1;
                             let next_project = &self.projects[self.selected_project];
-                            let next_tasks_len = next_project.sections[self.selected_section].tasks.len();
+                            let next_tasks_len =
+                                next_project.sections[self.selected_section].tasks.len();
                             self.focus = if next_tasks_len > 0 {
                                 SectionFocus::Task(0)
                             } else {
@@ -386,6 +429,7 @@ impl App for TaskApp {
                         ctx.memory_mut(|m| m.request_focus(egui::Id::NULL));
                     }
                     SectionFocus::Header => {}
+                    SectionFocus::Notes => {}
                 }
             }
             if input.key_pressed(Key::Delete) {
@@ -400,7 +444,12 @@ impl App for TaskApp {
             .resizable(true)
             .default_width(450.0)
             .show(ctx, |ui| {
-                ui.heading("notes-");
+                ui.label(
+                    egui::RichText::new(&self.notes_header)
+                        .color(egui::Color32::LIGHT_BLUE)
+                        .strong(),
+                );
+
                 ui.add_space(6.0);
 
                 egui::ScrollArea::vertical()
@@ -433,204 +482,200 @@ impl App for TaskApp {
                             );
                         }
 
-                        let x_w = 18.0;
-                        let x_rect = egui::Rect::from_min_max(
-                            egui::pos2(resp.rect.max.x - x_w, resp.rect.min.y),
-                            resp.rect.max,
-                        );
+                    let x_w = 18.0;
+                    let x_rect = egui::Rect::from_min_max(
+                        egui::pos2(resp.rect.max.x - x_w, resp.rect.min.y),
+                        resp.rect.max,
+                    );
 
-                        let pointer_pos = ui.input(|inp| inp.pointer.hover_pos());
-                        let x_hovered = pointer_pos.map_or(false, |p| x_rect.contains(p));
+                    let pointer_pos = ui.input(|inp| inp.pointer.hover_pos());
+                    let x_hovered = pointer_pos.map_or(false, |p| x_rect.contains(p));
 
-                        // if resp.hovered() && x_hovered {
-                        //     ui.painter().rect_filled(
-                        //         x_rect.shrink(2.0),
-                        //         2.0,
-                        //         egui::Color32::from_rgb(70,70,70),
-                        //     );
-                        // }
+                    // if resp.hovered() && x_hovered {
+                    //     ui.painter().rect_filled(
+                    //         x_rect.shrink(2.0),
+                    //         2.0,
+                    //         egui::Color32::from_rgb(70,70,70),
+                    //     );
+                    // }
 
-                        if resp.clicked() {
-                            if x_hovered {
-                                to_delete = Some(i);
-                            } else {
-                                self.selected_project = i;
-                                self.selected_section = 0;
-
-                                let first_tasks_len = self.projects[i].sections[0].tasks.len();
-                                self.focus = if first_tasks_len > 0 {
-                                    SectionFocus::Task(0)
-                                } else {
-                                    SectionFocus::NewTaskLine
-                                };
-                            }
-                        }
-                    }
-
-                    let mut deleted_last_project = false;
-
-                    if let Some(i) = to_delete {
-                        self.projects.remove(i);
-
-                        if self.projects.is_empty() {
-                            self.show_welcome = true;
-                            deleted_last_project = true;
+                    if resp.clicked() {
+                        if x_hovered {
+                            to_delete = Some(i);
                         } else {
-                            if self.selected_project >= self.projects.len() {
-                                self.selected_project = self.projects.len() - 1;
-                                self.selected_section = 0;
-                                self.focus = SectionFocus::NewTaskLine;
-                            }
+                            self.selected_project = i;
+                            self.selected_section = 0;
+
+                            let first_tasks_len = self.projects[i].sections[0].tasks.len();
+                            self.focus = if first_tasks_len > 0 {
+                                SectionFocus::Task(0)
+                            } else {
+                                SectionFocus::NewTaskLine
+                            };
                         }
                     }
+                }
 
-                    if deleted_last_project {
-                        ui.separator();
-                        return;
+                let mut deleted_last_project = false;
+
+                if let Some(i) = to_delete {
+                    self.projects.remove(i);
+
+                    if self.projects.is_empty() {
+                        deleted_last_project = true;
+                    } else {
+                        if self.selected_project >= self.projects.len() {
+                            self.selected_project = self.projects.len() - 1;
+                            self.selected_section = 0;
+                            self.focus = SectionFocus::NewTaskLine;
+                        }
                     }
+                }
 
-                    if ui.button("+").clicked() {
-                        let new_index = self.projects.len() + 1;
-                        self.projects.push(Project {
-                            name: format!("project-{}",new_index),
-                            sections: vec![
-                                Section {
-                                    name: "pending-".to_string(),
-                                    tasks: vec![],
-                                    new_task_text: String::new(),
-                                },
-                                Section {
-                                    name: "improvements to do-".to_string(),
-                                    tasks: vec![],
-                                    new_task_text: String::new(),
-                                },
-                                Section {
-                                    name: "bugs-".to_string(),
-                                    tasks: vec![],
-                                    new_task_text: String::new(),
-                                },
-                                Section {
-                                    name: "pushed updates-".to_string(),
-                                    tasks: vec![],
-                                    new_task_text: String::new(),
-                                },
-                            ],
-                        });
-                        self.selected_project = self.projects.len() - 1;
-                        self.selected_section = 0;
-                        self.focus = SectionFocus::NewTaskLine;
-                    }
-                });
-
-                ui.separator();
-
-                if self.projects.is_empty() {
-                    self.show_welcome = true;
+                if deleted_last_project {
+                    ui.separator();
                     return;
                 }
-                let project = &mut self.projects[self.selected_project];
 
-                ScrollArea::vertical().show(ui, |ui| {
-                    for (section_idx, section) in project.sections.iter_mut().enumerate() {
-                        ui.add_space(10.0);
-                        let is_current_section = section_idx == self.selected_section;
-                        let header_id = ui.id().with(("header", section_idx));
-                        ui.horizontal(|ui| {
-                            let header_selected = is_current_section && matches!(self.focus, SectionFocus::Header);
+                if ui.button("+").clicked() {
+                    let new_index = self.projects.len() + 1;
+                    self.projects.push(Project {
+                        name: format!("project-{}", new_index),
+                        sections: vec![
+                            Section {
+                                name: "pending-".to_string(),
+                                tasks: vec![],
+                                new_task_text: String::new(),
+                            },
+                            Section {
+                                name: "improvements to do-".to_string(),
+                                tasks: vec![],
+                                new_task_text: String::new(),
+                            },
+                            Section {
+                                name: "bugs-".to_string(),
+                                tasks: vec![],
+                                new_task_text: String::new(),
+                            },
+                            Section {
+                                name: "pushed updates-".to_string(),
+                                tasks: vec![],
+                                new_task_text: String::new(),
+                            },
+                        ],
+                    });
+                    self.selected_project = self.projects.len() - 1;
+                    self.selected_section = 0;
+                    self.focus = SectionFocus::NewTaskLine;
+                }
+            });
 
-                            let frame = egui::Frame::NONE.fill(
-                                if header_selected {
-                                    Color32::from_rgb(60,80,120)
-                                } else {
-                                    Color32::TRANSPARENT
-                                },
-                            );
+            ui.separator();
 
-                            frame.show(ui, |ui: &mut egui::Ui| {
-                                if header_selected {
-                                    ui.memory_mut(|m| m.request_focus(header_id));
-                                    let _resp = ui.add(
-                                        TextEdit::singleline(&mut section.name)
-                                            .id(header_id)
-                                            .frame(false)
-                                            .desired_width(ui.available_width()),
-                                    );
-                                    if ui.input(|i: &egui::InputState| i.key_pressed(Key::Enter)) {
-                                        self.focus = if !section.tasks.is_empty() {
-                                            SectionFocus::Task(0)
-                                        } else {
-                                            SectionFocus::NewTaskLine
-                                        }
-                                    }
-                                } else {
-                                    ui.label(
-                                        egui::RichText::new(&section.name)
-                                            .color(egui::Color32::LIGHT_BLUE)
-                                            .strong(),
-                                    );
-                                }
-                            });
+            if self.projects.is_empty() {
+                return;
+            }
+            let project = &mut self.projects[self.selected_project];
+
+            ScrollArea::vertical().show(ui, |ui| {
+                for (section_idx, section) in project.sections.iter_mut().enumerate() {
+                    ui.add_space(10.0);
+                    let is_current_section = section_idx == self.selected_section;
+                    let header_id = ui.id().with(("header", section_idx));
+                    ui.horizontal(|ui| {
+                        let header_selected =
+                            is_current_section && matches!(self.focus, SectionFocus::Header);
+
+                        let frame = egui::Frame::NONE.fill(if header_selected {
+                            Color32::from_rgb(60, 80, 120)
+                        } else {
+                            Color32::TRANSPARENT
                         });
 
-                        for (idx, task) in section.tasks.iter().enumerate() {
-                            let is_selected = is_current_section && matches!(self.focus, SectionFocus::Task(i) if i == idx);
+                        frame.show(ui, |ui: &mut egui::Ui| {
+                            if header_selected {
+                                // ui.memory_mut(|m| m.request_focus(header_id));
+                                let _resp = ui.add(
+                                    TextEdit::singleline(&mut section.name)
+                                        .id(header_id)
+                                        .frame(false)
+                                        .desired_width(ui.available_width()),
+                                );
+                                if ui.input(|i: &egui::InputState| i.key_pressed(Key::Enter)) {
+                                    self.focus = if !section.tasks.is_empty() {
+                                        SectionFocus::Task(0)
+                                    } else {
+                                        SectionFocus::NewTaskLine
+                                    }
+                                }
+                            } else {
+                                ui.label(
+                                    egui::RichText::new(&section.name)
+                                        .color(egui::Color32::LIGHT_BLUE)
+                                        .strong(),
+                                );
+                            }
+                        });
+                    });
 
-                            let frame = egui::Frame::NONE.fill(
-                                if is_selected {
-                                    Color32::from_rgb(60,80,120)
-                                } else {
-                                    Color32::TRANSPARENT
-                                },
-                            );
+                    for (idx, task) in section.tasks.iter().enumerate() {
+                        let is_selected = is_current_section
+                            && matches!(self.focus, SectionFocus::Task(i) if i == idx);
 
-                            frame.show(ui, |ui| {
-                                ui.horizontal(|ui| {
-                                    ui.label("::");
-                                    ui.label(&task.text);
-                                });
+                        let frame = egui::Frame::NONE.fill(if is_selected {
+                            Color32::from_rgb(60, 80, 120)
+                        } else {
+                            Color32::TRANSPARENT
+                        });
+
+                        frame.show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label("::");
+                                ui.label(&task.text);
                             });
-                        }
+                        });
+                    }
 
-                        let new_task_id = ui.id().with(("new_task", section_idx));
+                    let new_task_id = ui.id().with(("new_task", section_idx));
 
-                        ui.horizontal(|ui| {
-                            let is_new_task_selected = is_current_section && matches!(self.focus, SectionFocus::NewTaskLine);
+                    ui.horizontal(|ui| {
+                        let is_new_task_selected =
+                            is_current_section && matches!(self.focus, SectionFocus::NewTaskLine);
 
                             let frame = egui::Frame::NONE;
                                 //.fill (Color32::from_rgb(30,30,30));
 
-                            frame.show(ui, |ui| {
-                                let edit = TextEdit::singleline(&mut section.new_task_text)
-                                    .frame(false)
-                                    .margin(Vec2::ZERO);
+                        frame.show(ui, |ui| {
+                            let edit = TextEdit::singleline(&mut section.new_task_text)
+                                .frame(false)
+                                .margin(Vec2::ZERO);
 
-                                if is_new_task_selected {
-                                    ui.memory_mut(|m| m.request_focus(new_task_id));
-                                }
+                            // if is_new_task_selected {
+                            //     ui.memory_mut(|m| m.request_focus(new_task_id));
+                            // }
 
-                                let resp = ui.add(edit.id(new_task_id));
+                            let resp = ui.add(edit.id(new_task_id));
 
-                                if resp.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter))
-                                {
-                                    if !section.new_task_text.trim().is_empty() {
-                                        let id = self.next_id;
-                                        self.next_id += 1;
+                            if resp.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)) {
+                                if !section.new_task_text.trim().is_empty() {
+                                    let id = self.next_id;
+                                    self.next_id += 1;
 
-                                        section.tasks.push(Task {
-                                            id,
-                                            text: section.new_task_text.trim().to_string(),
-                                        });
-                                        section.new_task_text.clear();
+                                    section.tasks.push(Task {
+                                        id,
+                                        text: section.new_task_text.trim().to_string(),
+                                    });
+                                    section.new_task_text.clear();
 
-                                        if is_current_section {
-                                            self.focus = SectionFocus::Task(section.tasks.len() - 1);
-                                        }
+                                    if is_current_section {
+                                        self.focus = SectionFocus::Task(section.tasks.len() - 1);
                                     }
                                 }
-                            });
+                            }
                         });
-                    }
-                });
+                    });
+                }
+            });
 
                 ui.add_space(10.0);
                 ui.separator();
