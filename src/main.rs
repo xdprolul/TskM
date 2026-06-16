@@ -233,6 +233,48 @@ impl TaskApp {
 
 impl App for TaskApp {
     fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
+				ctx.set_visuals(egui::Visuals::dark());
+
+				if self.projects.is_empty() {
+    self.show_welcome = true;
+
+    egui::CentralPanel::default().show(ctx, |ui| {
+        ui.vertical_centered(|ui| {
+            ui.add_space(ui.available_height() * 0.3);
+
+            ui.heading("TskM");
+
+            ui.add_space(20.0);
+
+            if ui.button("Create Project").clicked() {
+                self.projects.push(Project {
+                    name: "Project-1".to_string(),
+                    sections: vec![
+                        Section {
+                            name: "pending-".to_string(),
+                            tasks: vec![],
+                            new_task_text: String::new(),
+                        },
+                        Section {
+                            name: "bugs-".to_string(),
+                            tasks: vec![],
+                            new_task_text: String::new(),
+                        },
+                    ],
+                });
+
+                self.selected_project = 0;
+                self.selected_section = 0;
+                self.focus = SectionFocus::NewTaskLine;
+                self.show_welcome = false;
+            }
+        });
+    });
+
+    return;
+}
+				
+	
         let should_close = ctx.input(|i| i.viewport().close_requested());
         if should_close {
             self.save_to_file();
@@ -246,15 +288,15 @@ impl App for TaskApp {
         }
 
         let input = ctx.input(|i| i.clone());
-        if self.projects.is_empty() {
-            self.show_welcome = true;
-            return;
-        }
+       	if self.selected_project >= self.projects.len() {
+					self.selected_project = 0;
+				}
+
         let project_ref = &self.projects[self.selected_project];
         let sec_count = project_ref.sections.len();
-        if sec_count == 0 {
-            return;
-        }
+        //if sec_count == 0 {
+        //    return;
+        //}
 
         let current_sec = self.selected_section.min(sec_count - 1);
         self.selected_section = current_sec;
@@ -374,48 +416,7 @@ impl App for TaskApp {
             });
 
         CentralPanel::default().show(ctx, |ui| {
-            if self.show_welcome || self.projects.is_empty() {
-                ui.vertical_centered(|ui| {
-                    ui.add_space(ui.available_height() * 0.4);
-                    ui.label(egui::RichText::new("TskM")
-                        .size(48.0)
-                        .color(Color32::from_rgb(30,30,30))
-                    );
-                    ui.add_space(20.0);
-                    if ui.button("Create New Project").clicked() {
-                        self.projects.push(Project {
-                            name: format!("project-{}", self.projects.len() + 1),
-                            sections: vec![
-                                Section {
-                                    name: "pending-".to_string(),
-                                    tasks: vec![],
-                                    new_task_text: String::new(),
-                                },
-                                Section {
-                                    name: "improvements to do-".to_string(),
-                                    tasks:vec![],
-                                    new_task_text: String::new(),
-                                },
-                                Section {
-                                    name: "bugs-".to_string(),
-                                    tasks: vec![],
-                                    new_task_text: String::new(),
-                                },
-                                Section {
-                                    name: "pushed updates-".to_string(),
-                                    tasks: vec![],
-                                    new_task_text: String::new(),
-                                },
-                            ],
-                        });
-                        self.show_welcome = false;
-                        self.selected_project = 0;
-                        self.selected_section = 0;
-                        self.focus = SectionFocus::NewTaskLine;
-                    }
-                });
-            } else {
-                // tab row
+            // tab row
                 ui.horizontal(|ui| {
                     let mut to_delete = None;
 
@@ -595,8 +596,8 @@ impl App for TaskApp {
                         ui.horizontal(|ui| {
                             let is_new_task_selected = is_current_section && matches!(self.focus, SectionFocus::NewTaskLine);
 
-                            let frame = egui::Frame::NONE
-                                .fill (Color32::from_rgb(30,30,30));
+                            let frame = egui::Frame::NONE;
+                                //.fill (Color32::from_rgb(30,30,30));
 
                             frame.show(ui, |ui| {
                                 let edit = TextEdit::singleline(&mut section.new_task_text)
@@ -633,13 +634,13 @@ impl App for TaskApp {
 
                 ui.add_space(10.0);
                 ui.separator();
-            }
-        });
+            });
     }
 }
 
 fn main() -> eframe::Result<()> {
     let options = NativeOptions {
+				renderer: eframe::Renderer::Glow,
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1000.0, 700.0]),
         ..Default::default()
